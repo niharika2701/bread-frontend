@@ -54,6 +54,7 @@
           localStorage.setItem("token", data.access_token);
           localStorage.setItem("username", data.username);
           showSuccess("Login successful! Welcome " + data.username);
+          setTimeout(() => window.location.href = "/calculations", 1000);
         } else {
           showError("Invalid credentials. Please try again.");
         }

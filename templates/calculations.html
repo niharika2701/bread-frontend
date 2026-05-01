@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculations</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 2rem; }
+    h1 { color: #333; margin-bottom: 1.5rem; }
+    h2 { color: #333; margin-bottom: 1rem; font-size: 1.1rem; }
+    .card { background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+    input, select { padding: 0.5rem 0.75rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+    input { width: 120px; }
+    select { width: 130px; }
+    button { padding: 0.5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; }
+    .btn-add { background: #2E75B6; color: white; }
+    .btn-add:hover { background: #1F4E79; }
+    .btn-edit { background: #f0a500; color: white; }
+    .btn-delete { background: #e74c3c; color: white; }
+    .btn-save { background: #27ae60; color: white; }
+    .btn-cancel { background: #aaa; color: white; }
+    .message { padding: 0.6rem 1rem; border-radius: 6px; margin-top: 0.75rem; font-size: 0.9rem; display: none; }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f4f4f4; padding: 0.6rem 0.8rem; text-align: left; font-size: 0.9rem; border-bottom: 2px solid #ddd; }
+    td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    tr:hover { background: #fafafa; }
+    .actions { display: flex; gap: 0.4rem; }
+    .edit-row { display: none; background: #fffbea; }
+    .edit-row td { padding: 0.5rem 0.8rem; }
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .nav a { color: #2E75B6; text-decoration: none; font-size: 0.9rem; }
+    .welcome { color: #555; font-size: 0.95rem; }
+    .empty { color: #999; padding: 1rem 0; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="nav">
+    <h1>My Calculations</h1>
+    <div>
+      <span class="welcome" id="welcome"></span>
+      &nbsp;&nbsp;
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <!-- Add Calculation -->
+  <div class="card">
+    <h2>Add Calculation</h2>
+    <div class="row">
+      <input type="number" id="add-a" placeholder="Number A" step="any" />
+      <select id="add-type">
+        <option value="Add">Add</option>
+        <option value="Sub">Sub</option>
+        <option value="Multiply">Multiply</option>
+        <option value="Divide">Divide</option>
+      </select>
+      <input type="number" id="add-b" placeholder="Number B" step="any" />
+      <button class="btn-add" onclick="addCalculation()">Calculate</button>
+    </div>
+    <div class="message" id="add-message"></div>
+  </div>
+
+  <!-- Calculations Table -->
+  <div class="card">
+    <h2>All Calculations</h2>
+    <table id="calc-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>A</th>
+          <th>Type</th>
+          <th>B</th>
+          <th>Result</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="calc-body">
+        <tr><td colspan="6" class="empty">No calculations yet.</td></tr>
+      </tbody>
+    </table>
+    <div class="message" id="table-message"></div>
+  </div>
+
+  <script>
+    const API = "";
+
+    function getToken() {
+      return localStorage.getItem("token");
+    }
+
+    function authHeaders() {
+      return {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + getToken()
+      };
+    }
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+
+    window.onload = function() {
+      const token = getToken();
+      const username = localStorage.getItem("username");
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+      document.getElementById("welcome").textContent = "Hello, " + (username || "User");
+      loadCalculations();
+    };
+
+    async function loadCalculations() {
+      try {
+        const res = await fetch(`${API}/calculations/`, { headers: authHeaders() });
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json();
+        renderTable(data);
+      } catch (e) {
+        showMsg("table-message", "Failed to load calculations.", "error");
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById("calc-body");
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No calculations yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(c => `
+        <tr id="row-${c.id}">
+          <td>${c.id}</td>
+          <td>${c.a}</td>
+          <td>${c.type}</td>
+          <td>${c.b}</td>
+          <td><strong>${c.result}</strong></td>
+          <td class="actions">
+            <button class="btn-edit" onclick="showEdit(${c.id}, ${c.a}, '${c.type}', ${c.b})">Edit</button>
+            <button class="btn-delete" onclick="deleteCalculation(${c.id})">Delete</button>
+          </td>
+        </tr>
+        <tr class="edit-row" id="edit-row-${c.id}">
+          <td>${c.id}</td>
+          <td><input type="number" id="edit-a-${c.id}" value="${c.a}" step="any" style="width:80px"/></td>
+          <td>
+            <select id="edit-type-${c.id}">
+              <option value="Add" ${c.type==='Add'?'selected':''}>Add</option>
+              <option value="Sub" ${c.type==='Sub'?'selected':''}>Sub</option>
+              <option value="Multiply" ${c.type==='Multiply'?'selected':''}>Multiply</option>
+              <option value="Divide" ${c.type==='Divide'?'selected':''}>Divide</option>
+            </select>
+          </td>
+          <td><input type="number" id="edit-b-${c.id}" value="${c.b}" step="any" style="width:80px"/></td>
+          <td></td>
+          <td class="actions">
+            <button class="btn-save" onclick="saveEdit(${c.id})">Save</button>
+            <button class="btn-cancel" onclick="cancelEdit(${c.id})">Cancel</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    async function addCalculation() {
+      const a = parseFloat(document.getElementById("add-a").value);
+      const b = parseFloat(document.getElementById("add-b").value);
+      const type = document.getElementById("add-type").value;
+
+      if (isNaN(a) || isNaN(b)) return showMsg("add-message", "A and B must be numbers.", "error");
+      if (type === "Divide" && b === 0) return showMsg("add-message", "Cannot divide by zero.", "error");
+
+      try {
+        const res = await fetch(`${API}/calculations/`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ a, b, type })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showMsg("add-message", `Result: ${data.result}`, "success");
+          document.getElementById("add-a").value = "";
+          document.getElementById("add-b").value = "";
+          loadCalculations();
+        } else {
+          showMsg("add-message", data.detail || data.error || "Failed to add.", "error");
+        }
+      } catch (e) {
+        showMsg("add-message", "Network error.", "error");
+      }
+    }
+
+    function showEdit(id, a, type, b) {
+      document.getElementById(`row-${id}`).style.display = "none";
+      document.getElementById(`edit-row-${id}`).style.display = "table-row";
+    }
+
+    function cancelEdit(id) {
+      document.getElementById(`row-${id}`).style.display = "table-row";
+      document.getElementById(`edit-row-${id}`).style.display = "none";
+    }
+
+    async function saveEdit(id) {
+      const a = parseFloat(document.getElementById(`edit-a-${id}`).value);
+      const b = parseFloat(document.getElementById(`edit-b-${id}`).value);
+      const type = document.getElementById(`edit-type-${id}`).value;
+
+      if (isNaN(a) || isNaN(b)) return showMsg("table-message", "A and B must be numbers.", "error");
+      if (type === "Divide" && b === 0) return showMsg("table-message", "Cannot divide by zero.", "error");
+
+      try {
+        const res = await fetch(`${API}/calculations/${id}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({ a, b, type })
+        });
+        if (res.ok) {
+          showMsg("table-message", "Calculation updated.", "success");
+          loadCalculations();
+        } else {
+          const data = await res.json();
+          showMsg("table-message", data.detail || "Update failed.", "error");
+        }
+      } catch (e) {
+        showMsg("table-message", "Network error.", "error");
+      }
+    }
+
+    async function deleteCalculation(id) {
+      try {
+        const res = await fetch(`${API}/calculations/${id}`, {
+          method: "DELETE",
+          headers: authHeaders()
+        });
+        if (res.status === 204) {
+          showMsg("table-message", "Calculation deleted.", "success");
+          loadCalculations();
+        } else {
+          showMsg("table-message", "Delete failed.", "error");
+        }
+      } catch (e) {
+        showMsg("table-message", "Network error.", "error");
+      }
+    }
+
+    function showMsg(id, text, type) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = "message " + type;
+      el.style.display = "block";
+      setTimeout(() => el.style.display = "none", 4000);
+    }
+  </script>
+</body>
+</html>

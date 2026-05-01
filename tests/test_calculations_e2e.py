@@ -10,8 +10,8 @@ def unique(base: str) -> str:
 
 
 def register_and_login(page: Page, username: str, password: str = "password123"):
-    """Helper: register a user and login, ending on the calculations page."""
     page.goto(f"{BASE_URL}/register")
+    page.wait_for_selector("#username", timeout=10000)
     page.fill("#username", username)
     page.fill("#email", f"{username}@example.com")
     page.fill("#password", password)
@@ -20,11 +20,14 @@ def register_and_login(page: Page, username: str, password: str = "password123")
     page.wait_for_timeout(600)
 
     page.goto(f"{BASE_URL}/login")
+    page.wait_for_selector("#username", timeout=10000)
     page.fill("#username", username)
     page.fill("#password", password)
     page.click("button")
     page.wait_for_timeout(1200)
+
     page.goto(f"{BASE_URL}/calculations")
+    page.wait_for_selector("#add-a", timeout=10000)
     page.wait_for_timeout(500)
 
 
@@ -100,13 +103,9 @@ class TestEditCalculation:
         page.click("button.btn-edit")
         page.wait_for_timeout(300)
 
-        first_edit_a = page.locator("input[id^='edit-a-']").first
-        first_edit_b = page.locator("input[id^='edit-b-']").first
-        first_edit_type = page.locator("select[id^='edit-type-']").first
-
-        first_edit_a.fill("10")
-        first_edit_b.fill("3")
-        first_edit_type.select_option("Multiply")
+        page.locator("input[id^='edit-a-']").first.fill("10")
+        page.locator("input[id^='edit-b-']").first.fill("3")
+        page.locator("select[id^='edit-type-']").first.select_option("Multiply")
 
         page.click("button.btn-save")
         page.wait_for_timeout(800)
@@ -132,7 +131,6 @@ class TestDeleteCalculation:
 class TestUnauthenticated:
 
     def test_redirect_to_login_if_not_authenticated(self, page: Page):
-        """Visiting /calculations without a token redirects to login."""
         page.goto(f"{BASE_URL}/calculations")
         page.wait_for_timeout(800)
         expect(page).to_have_url(f"{BASE_URL}/login")

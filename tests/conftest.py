@@ -20,12 +20,18 @@ def start_server():
         stderr=subprocess.DEVNULL
     )
 
-    for _ in range(20):
+    # Wait until server responds
+    for _ in range(30):
         try:
-            requests.get(f"{SERVER_URL}/health", timeout=1)
-            break
+            r = requests.get(f"{SERVER_URL}/health", timeout=1)
+            if r.status_code == 200:
+                break
         except Exception:
-            time.sleep(0.5)
+            pass
+        time.sleep(0.5)
+
+    # Extra buffer so templates are fully loaded
+    time.sleep(2)
 
     yield
 
